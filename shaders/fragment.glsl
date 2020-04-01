@@ -1,6 +1,7 @@
 #version 330
 
 uniform float iTime;
+uniform int iFrame;
 uniform float iDeltaTime;
 uniform vec2 iMousePos;
 uniform vec2 iResolution;
@@ -15,10 +16,8 @@ out vec4 fragColor;
 void main(void) {
         if (bufferId == 0) {
                 fragColor = texture(buffer1, gl_FragCoord.xy / iResolution);
-        } else if (bufferId == 1) {
-                vec4 c = texture(buffer1, gl_FragCoord.xy / iResolution);
-                fragColor = vec4(0.01,0,0,0) + c;
+                fragColor = vec4(iFrame);
         } else {
-                fragColor = texture(buffer1, gl_FragCoord.xy / iResolution) / 10.0;
+                fragColor = texture(buffer0, gl_FragCoord.xy / iResolution) / 10000.0;
         }
 }

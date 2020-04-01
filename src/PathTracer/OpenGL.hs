@@ -74,7 +74,7 @@ initRenderState shaderDir = do
   currentTime <- liftIO getCurrentTime
   pure (RenderState shaderProg vao False shaderDir
         windowSize currentTime
-        [buffer0, buffer1])
+        [buffer0, buffer1] 0)
 
 genTextureFloat :: MonadIO m => GL.GLint -> GL.GLint -> m GL.TextureObject
 genTextureFloat width height = do
@@ -203,6 +203,8 @@ renderFrame iTime t = do
 
   -- Set uniforms
   safeSetUniform "iTime" iTime
+  safeSetUniform "iFrame" (fromIntegral (rs^.frameNo) :: GL.GLint)
+  modify (over frameNo (+1))
   safeSetUniform "iDeltaTime" dt
   let (GL.Size width height) = rs^.windowSize
   safeSetUniform "iResolution"
