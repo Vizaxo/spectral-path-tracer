@@ -1,4 +1,4 @@
-module LiveshaderHS.OpenGL where
+module PathTracer.OpenGL where
 
 import Control.Exception
 import Control.Lens
@@ -13,8 +13,8 @@ import System.Exit
 import qualified Graphics.Rendering.OpenGL as GL
 import qualified Graphics.UI.GLFW as GLFW
 
-import LiveshaderHS.STMState
-import LiveshaderHS.Types
+import PathTracer.STMState
+import PathTracer.Types
 
 screenRect :: [GL.Vector2 Float]
 screenRect = [ GL.Vector2 (-1.0) (-1.0)
@@ -32,7 +32,7 @@ makeWindow = liftIO $ do
   GLFW.openWindowHint GLFW.OpenGLVersionMinor 3
   GLFW.openWindowHint GLFW.OpenGLProfile GLFW.OpenGLCoreProfile
   GLFW.openWindow (GL.Size 400 600) [] GLFW.Window
-  GLFW.windowTitle $= "Liveshader HS"
+  GLFW.windowTitle $= "PathTracer HS"
   GLFW.windowCloseCallback $= exitSuccess
   GLFW.keyCallback $= keyCallback
 

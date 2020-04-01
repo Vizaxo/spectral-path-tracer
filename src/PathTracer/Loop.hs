@@ -1,4 +1,4 @@
-module LiveshaderHS.Loop where
+module PathTracer.Loop where
 
 import Control.Concurrent.STM
 import Control.Lens
@@ -10,12 +10,12 @@ import qualified Graphics.Rendering.OpenGL as GL
 import qualified Graphics.UI.GLFW as GLFW
 import System.FSNotify
 
-import LiveshaderHS.OpenGL
-import LiveshaderHS.STMState
-import LiveshaderHS.Types
+import PathTracer.OpenGL
+import PathTracer.STMState
+import PathTracer.Types
 
-liveshader :: MonadIO m => FilePath -> m ()
-liveshader shaderDir = do
+pathTracer :: MonadIO m => FilePath -> m ()
+pathTracer shaderDir = do
   makeWindow
   initOGL
   rs <- initRenderState shaderDir

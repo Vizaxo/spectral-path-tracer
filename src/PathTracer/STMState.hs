@@ -1,4 +1,4 @@
-module LiveshaderHS.STMState where
+module PathTracer.STMState where
 
 import Control.Concurrent.STM
 import Control.Monad.Reader

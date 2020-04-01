@@ -1,4 +1,4 @@
-name:                liveshader-hs
+name:                path-tracer-hs
 version:             0.1.0.0
 license:             AGPL-3
 
@@ -32,7 +32,7 @@ library:
   source-dirs: src
 
 executables:
-  liveshader-hs-exe:
+  path-tracer-hs-exe:
     source-dirs: app
     main: Main.hs
     ghc-options:
@@ -41,4 +41,4 @@ executables:
     - -with-rtsopts=-N
     - -O0
     dependencies:
-    - liveshader-hs
+    - path-tracer-hs

@@ -1,4 +1,4 @@
-module LiveshaderHS.Types where
+module PathTracer.Types where
 
 import Control.Lens
 import Data.Time.Clock
