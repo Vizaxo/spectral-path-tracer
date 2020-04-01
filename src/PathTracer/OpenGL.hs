@@ -68,16 +68,12 @@ initRenderState shaderDir = do
       GL.vertexAttribPointer posAttribute $= (GL.ToFloat, pos)
   GL.bindVertexArrayObject $= Just vao
 
-  texture0 <- liftIO $ readTexture (shaderDir ++ "/image.png") >>= \case
-    Left e -> error $ "Failed to load texture: " ++ e
-    Right t -> pure t
-
   buffer0 <- genRenderBuffer windowSize
   buffer1 <- genRenderBuffer windowSize
 
   currentTime <- liftIO getCurrentTime
   pure (RenderState shaderProg vao False shaderDir
-        windowSize currentTime texture0
+        windowSize currentTime
         [buffer0, buffer1])
 
 genTextureFloat :: MonadIO m => GL.GLint -> GL.GLint -> m GL.TextureObject
@@ -214,7 +210,6 @@ renderFrame iTime t = do
   (GL.Position mouseX mouseY) <- GL.get GLFW.mousePos
   safeSetUniform "iMousePos" (GL.Vector2 @Float (fromIntegral mouseX)
                               (fromIntegral (height - mouseY)))
-  bindTexture (rs^.texture0) "texture0" (GL.TextureUnit 0)
 
   let numberedBuffers = zip (rs^.buffers) [0..]
   mapM_ (uncurry bindBufferTexture) numberedBuffers

@@ -6,7 +6,6 @@ uniform vec2 iMousePos;
 uniform vec2 iResolution;
 uniform int bufferId;
 
-uniform sampler2D texture0;
 uniform sampler2D buffer0;
 uniform sampler2D buffer1;
 
