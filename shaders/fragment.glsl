@@ -85,6 +85,19 @@ vec3 sampleHemisphere(vec3 normal, uint seed) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Light and colour
+////////////////////////////////////////////////////////////////////////////////
+
+vec4 fromLinear(vec4 linearRGB)
+{
+    bvec4 cutoff = lessThan(linearRGB, vec4(0.0031308));
+    vec4 higher = vec4(1.055)*pow(linearRGB, vec4(1.0/2.4)) - vec4(0.055);
+    vec4 lower = linearRGB * vec4(12.92);
+
+    return mix(higher, lower, cutoff);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Intecsections
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -143,7 +156,7 @@ vec3 fireRay(ray r, uint seed) {
                                 r.direction = reflect(r.direction, h.normal);
                                 break;
                         case light:
-                                color *= vec3(h.mat.color);
+                                color *= 2.0 * vec3(h.mat.color);
                                 return color;
                         case diffuse:
                                 r.direction = sampleHemisphere(h.normal, seed);
@@ -194,6 +207,6 @@ void main(void) {
                 fragColor = prev + vec4(c, 0.0);
         } else {
                 //fragColor = texture(buffer0, gl_FragCoord.xy / iResolution) / float(iFrame);
-                fragColor = texture(buffer0, gl_FragCoord.xy / iResolution);
+                fragColor = fromLinear(texture(buffer0, gl_FragCoord.xy / iResolution));
         }
 }
