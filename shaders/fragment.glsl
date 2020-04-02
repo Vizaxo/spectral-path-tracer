@@ -149,7 +149,7 @@ vec3 fireRay(ray r, uint seed) {
                                 r.direction = sampleHemisphere(h.normal, seed);
                                 break;
                         }
-                        color *= vec3(h.mat.color);
+                        color *= vec3(h.mat.color) * dot(r.direction, h.normal);
                         r.origin += r.direction*epsilon;
                 } else {
                         return vec3(0.0);
