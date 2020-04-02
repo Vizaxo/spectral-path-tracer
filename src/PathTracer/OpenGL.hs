@@ -68,13 +68,17 @@ initRenderState shaderDir = do
       GL.vertexAttribPointer posAttribute $= (GL.ToFloat, pos)
   GL.bindVertexArrayObject $= Just vao
 
+  texture0 <- liftIO $ readTexture (shaderDir ++ "/grey-noise-32f-1024-1024.tiff") >>= \case
+    Left e -> error $ "Failed to load texture: " ++ e
+    Right t -> pure t
+
   buffer0 <- genRenderBuffer windowSize
   buffer1 <- genRenderBuffer windowSize
 
   currentTime <- liftIO getCurrentTime
   pure (RenderState shaderProg vao False shaderDir
         windowSize currentTime
-        [buffer0, buffer1] 0)
+        [buffer0, buffer1] texture0 0)
 
 genTextureFloat :: MonadIO m => GL.GLint -> GL.GLint -> m GL.TextureObject
 genTextureFloat width height = do
@@ -185,7 +189,7 @@ bindBufferTexture :: (MonadGet RenderState m, MonadIO m)
   => RenderBuffer -> Integer -> m ()
 bindBufferTexture b id =
   let t = getLastWrittenTexture b
-  in bindTexture t ("buffer" ++ show id) (GL.TextureUnit (1+fromInteger id))
+  in bindTexture t ("buffer" ++ show id) (GL.TextureUnit (2+fromInteger id))
 
 renderFrame :: (MonadState RenderState m, MonadIO m) => Float -> UTCTime -> m ()
 renderFrame iTime t = do
@@ -212,6 +216,7 @@ renderFrame iTime t = do
   (GL.Position mouseX mouseY) <- GL.get GLFW.mousePos
   safeSetUniform "iMousePos" (GL.Vector2 @Float (fromIntegral mouseX)
                               (fromIntegral (height - mouseY)))
+  bindTexture (rs^.texture0) "texture0" (GL.TextureUnit 1)
 
   let numberedBuffers = zip (rs^.buffers) [0..]
   mapM_ (uncurry bindBufferTexture) numberedBuffers
