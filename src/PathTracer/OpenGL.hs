@@ -10,6 +10,7 @@ import Foreign.Storable
 import Graphics.GLUtil
 import Graphics.Rendering.OpenGL (($=))
 import System.Exit
+import System.IO
 import qualified Graphics.Rendering.OpenGL as GL
 import qualified Graphics.UI.GLFW as GLFW
 
@@ -132,11 +133,11 @@ compileShaders shaderDir = do
   liftIO (try (makeShaderProgram shaderDir)) >>= \case
     Right sp -> do
       GL.currentProgram $= Just (program sp)
-      liftIO (putStrLn " Recompiled")
+      liftIO (putStrLn " Recompiled\n")
       pure (Just sp)
     Left e -> do
       liftIO (print (e :: IOException))
-      liftIO (putStrLn " Shader compilation failed")
+      liftIO (putStrLn " Shader compilation failed\n")
       pure Nothing
 
 uniformExists :: GL.UniformLocation -> Bool
@@ -227,3 +228,4 @@ renderFrame iTime t = do
 
   liftIO $ putStr $ "FPS: " ++ show fps ++ "fps \t"
     ++ "Window size: " ++ show width ++ "*" ++ show height ++ "\r"
+  liftIO $ hFlush stdout
