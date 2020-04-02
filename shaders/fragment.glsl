@@ -52,7 +52,7 @@ float tau = 2.0*pi;
 
 uint maxBounces = 10u;
 float epsilon = 0.001;
-uint raysPerPixel = 10u;
+uint raysPerPixel = 1u;
 uint numRands = 4u;
 
 material black = material(mirror, vec3(0));
@@ -186,7 +186,7 @@ vec3 fireRay(ray r, uint seed) {
 }
 
 vec3 renderFrame(void) {
-        vec3 camPos = vec3(3.0*sin(iTime/4.0), 2, 3.0*cos(iTime/4.0));
+        vec3 camPos = vec3(0.0, 2, -3.0);
         vec3 lookAt = vec3(0,1.4,0);
         vec3 worldUp = vec3(0, 1, 0);
         vec3 camForward = normalize(lookAt - camPos);
@@ -216,10 +216,9 @@ vec3 renderFrame(void) {
 void main(void) {
         if (bufferId == 0) {
                 vec3 c = renderFrame();
-                vec4 prev = vec4(0);//texture(buffer0, gl_FragCoord.xy / iResolution);
+                vec4 prev = texture(buffer0, gl_FragCoord.xy / iResolution);
                 fragColor = prev + vec4(c, 0.0);
         } else {
-                //fragColor = texture(buffer0, gl_FragCoord.xy / iResolution) / float(iFrame);
-                fragColor = fromLinear(texture(buffer0, gl_FragCoord.xy / iResolution));
+                fragColor = fromLinear(texture(buffer0, gl_FragCoord.xy / iResolution) / float(iFrame));
         }
 }
