@@ -131,14 +131,26 @@ hit unionObj(hit a, hit b) {
 
 hit intersect(ray r) {
         hit ground = intersectSphere(r, vec3(0,-200,0), 200.0,
-                                     material(diffuse, vec3(0.8, 0.8, 0.8)));
+                                     material(diffuse, vec3(0.9, 0.9, 0.9)));
         hit ceiling = intersectSphere(r, vec3(0,205,0), 200.0,
-                                      material(diffuse, vec3(0.8, 0.8, 0.8)));
-        hit sphere2 = intersectSphere(r, vec3(0,4,0), 1.0,
-                                      material(light, vec3(0.8,1,0.2)));
-        hit sphere3 = intersectSphere(r, vec3(-2, -4, 0), 5.0,
-                                      material(mirror, vec3(0.2, 0.5, 0.9)));
-        return unionObj(unionObj(ground, ceiling), (unionObj(sphere2, sphere3)));
+                                      material(diffuse, vec3(0.9, 0.9, 0.9)));
+        hit left = intersectSphere(r, vec3(-205,0,0), 200.0,
+                                      material(diffuse, vec3(0.9, 0.2, 0.2)));
+        hit right = intersectSphere(r, vec3(205,0,0), 200.0,
+                                      material(diffuse, vec3(0.2, 0.9, 0.2)));
+        hit back = intersectSphere(r, vec3(0,0,205), 200.0,
+                                      material(diffuse, vec3(0.2, 0.2, 0.9)));
+        hit front = intersectSphere(r, vec3(0,0,-205), 200.0,
+                                      material(diffuse, vec3(0.2, 0.2, 0.2)));
+
+        hit walls = unionObj(unionObj(ground, ceiling),
+                             unionObj(unionObj(left, right),
+                                      unionObj(back, front)));
+        hit sphere2 = intersectSphere(r, vec3(0,200,0), 195.001,
+                                      material(light, vec3(1.0, 1.0, 1.0)));
+        hit sphere3 = intersectSphere(r, vec3(-2, 0, 0), 1.0,
+                                      material(mirror, vec3(0.6, 0.6, 0.6)));
+        return unionObj(walls, (unionObj(sphere2, sphere3)));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -174,13 +186,13 @@ vec3 fireRay(ray r, uint seed) {
 }
 
 vec3 renderFrame(void) {
-        vec3 camPos = vec3(14.0*sin(iTime), 5, 14.0*cos(iTime));
-        vec3 lookAt = vec3(0,2,0);
+        vec3 camPos = vec3(3.0*sin(iTime/4.0), 2, 3.0*cos(iTime/4.0));
+        vec3 lookAt = vec3(0,1.4,0);
         vec3 worldUp = vec3(0, 1, 0);
         vec3 camForward = normalize(lookAt - camPos);
         vec3 camRight = cross(camForward, worldUp);
         vec3 camUp = cross(camRight, camForward);
-        vec3 filmCentre = camPos + camForward*1.0;
+        vec3 filmCentre = camPos + camForward*0.6;
         vec2 filmSize = vec2(1.0, iResolution.y/iResolution.x);
         vec3 filmPos = filmCentre + camRight*uv.x*filmSize.x + camUp*uv.y*filmSize.y;
         vec3 rd = normalize(filmPos - camPos);
