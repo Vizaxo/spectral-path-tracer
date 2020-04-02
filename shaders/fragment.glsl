@@ -21,18 +21,29 @@ out vec4 fragColor;
 struct ray {
         vec3 origin;
         vec3 direction;
+        float wavelength;
 };
 
 
 struct material {
         uint matType;
-        vec3 color;
+        uint color;
 };
 
 // matType enum
 #define mirror 1u
 #define light 2u
 #define diffuse 3u
+
+// color enum
+#define white 0u
+#define lightGrey 1u
+#define darkGrey 2u
+#define black 3u
+#define red 4u
+#define green 5u
+#define blue 6u
+#define yellow 7u
 
 struct hit {
         bool didHit;
@@ -53,10 +64,10 @@ float tau = 2.0*pi;
 uint maxBounces = 10u;
 float epsilon = 0.001;
 uint raysPerPixel = 1u;
-uint numRands = 4u;
+uint numRands = 5u;
 
-material black = material(mirror, vec3(0));
-hit noHit = hit(false, inf, vec3(0.0), vec3(0.0), material(black));
+material blankMaterial = material(diffuse, black);
+hit noHit = hit(false, inf, vec3(0.0), vec3(0.0), blankMaterial);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Random sampling
@@ -97,6 +108,91 @@ vec4 fromLinear(vec4 linearRGB)
     return mix(higher, lower, cutoff);
 }
 
+// Convert a wavelength to CIE color space
+vec3 cie_1964(float lambda) {
+    switch(int(lambda)/10) {
+        case 36: return vec3(0.000000122200, 0.000000013398, 0.000000535027);
+        case 37: return vec3(0.000005958600, 0.000000651100, 0.000026143700);
+        case 38: return vec3(0.000159952000, 0.000017364000, 0.000704776000);
+        case 39: return vec3(0.002361600000, 0.000253400000, 0.010482200000);
+        case 40: return vec3(0.019109700000, 0.002004400000, 0.086010900000);
+        case 41: return vec3(0.084736000000, 0.008756000000, 0.389366000000);
+        case 42: return vec3(0.204492000000, 0.021391000000, 0.972542000000);
+        case 43: return vec3(0.314679000000, 0.038676000000, 1.553480000000);
+        case 44: return vec3(0.383734000000, 0.062077000000, 1.967280000000);
+        case 45: return vec3(0.370702000000, 0.089456000000, 1.994800000000);
+        case 46: return vec3(0.302273000000, 0.128201000000, 1.745370000000);
+        case 47: return vec3(0.195618000000, 0.185190000000, 1.317560000000);
+        case 48: return vec3(0.080507000000, 0.253589000000, 0.772125000000);
+        case 49: return vec3(0.016172000000, 0.339133000000, 0.415254000000);
+        case 50: return vec3(0.003816000000, 0.460777000000, 0.218502000000);
+        case 51: return vec3(0.037465000000, 0.606741000000, 0.112044000000);
+        case 52: return vec3(0.117749000000, 0.761757000000, 0.060709000000);
+        case 53: return vec3(0.236491000000, 0.875211000000, 0.030451000000);
+        case 54: return vec3(0.376772000000, 0.961988000000, 0.013676000000);
+        case 55: return vec3(0.529826000000, 0.991761000000, 0.003988000000);
+        case 56: return vec3(0.705224000000, 0.997340000000, 0.000000000000);
+        case 57: return vec3(0.878655000000, 0.955552000000, 0.000000000000);
+        case 58: return vec3(1.014160000000, 0.868934000000, 0.000000000000);
+        case 59: return vec3(1.118520000000, 0.777405000000, 0.000000000000);
+        case 60: return vec3(1.123990000000, 0.658341000000, 0.000000000000);
+        case 61: return vec3(1.030480000000, 0.527963000000, 0.000000000000);
+        case 62: return vec3(0.856297000000, 0.398057000000, 0.000000000000);
+        case 63: return vec3(0.647467000000, 0.283493000000, 0.000000000000);
+        case 64: return vec3(0.431567000000, 0.179828000000, 0.000000000000);
+        case 65: return vec3(0.268329000000, 0.107633000000, 0.000000000000);
+        case 66: return vec3(0.152568000000, 0.060281000000, 0.000000000000);
+        case 67: return vec3(0.081260600000, 0.031800400000, 0.000000000000);
+        case 68: return vec3(0.040850800000, 0.015905100000, 0.000000000000);
+        case 69: return vec3(0.019941300000, 0.007748800000, 0.000000000000);
+        case 70: return vec3(0.009576880000, 0.003717740000, 0.000000000000);
+        case 71: return vec3(0.004552630000, 0.001768470000, 0.000000000000);
+        case 72: return vec3(0.002174960000, 0.000846190000, 0.000000000000);
+        case 73: return vec3(0.001044760000, 0.000407410000, 0.000000000000);
+        case 74: return vec3(0.000508258000, 0.000198730000, 0.000000000000);
+        case 75: return vec3(0.000250969000, 0.000098428000, 0.000000000000);
+        case 76: return vec3(0.000126390000, 0.000049737000, 0.000000000000);
+        case 77: return vec3(0.000064525800, 0.000025486000, 0.000000000000);
+        case 78: return vec3(0.000033411700, 0.000013249000, 0.000000000000);
+        case 79: return vec3(0.000017611500, 0.000007012800, 0.000000000000);
+        case 80: return vec3(0.000009413630, 0.000003764730, 0.000000000000);
+        case 81: return vec3(0.000005093470, 0.000002046130, 0.000000000000);
+        case 82: return vec3(0.000002795310, 0.000001128090, 0.000000000000);
+        case 83: return vec3(0.000001553140, 0.000000629700, 0.000000000000);
+        default: return vec3(0.0);
+    }
+}
+
+// Convert a wavelength to linear RGB values
+vec3 wavelengthToRGB(float lambda) {
+    vec3 xyz = cie_1964(lambda);
+    float x = xyz.x;
+    float y = xyz.y;
+    float z = xyz.z;
+
+    vec3 rgb;
+    rgb.r =  3.2404542*x - 1.5371385*y - 0.4985314*z;
+	rgb.g = -0.9692660*x + 1.8760108*y + 0.0415560*z;
+	rgb.b =  0.0556434*x - 0.2040259*y + 1.0572252*z;
+    return rgb;
+}
+
+// Get the intensity of a color at the given wavelength
+float getIntensity(uint color, float wavelength) {
+    vec3 rgb = wavelengthToRGB(wavelength);
+    switch (color) {
+        case white: return 1.0;
+        case lightGrey: return 0.8;
+        case darkGrey: return 0.3;
+        case black: return 0.0;
+        case red: return rgb.r + 0.05*rgb.b + 0.05*rgb.g;
+        case green: return rgb.g + 0.05*rgb.b + 0.1*rgb.r;
+        case blue: return rgb.b + 0.05*rgb.r + 0.1*rgb.g;
+        case yellow: return rgb.g + 0.05*rgb.b + 0.5*rgb.r;
+        default: return 0.0;
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Intersections
 ////////////////////////////////////////////////////////////////////////////////
@@ -131,25 +227,25 @@ hit unionObj(hit a, hit b) {
 
 hit intersect(ray r) {
         hit ground = intersectSphere(r, vec3(0,-200,0), 200.0,
-                                     material(diffuse, vec3(0.9, 0.9, 0.9)));
+                                     material(diffuse, white));
         hit ceiling = intersectSphere(r, vec3(0,205,0), 200.0,
-                                      material(diffuse, vec3(0.9, 0.9, 0.9)));
+                                      material(diffuse, white));
         hit left = intersectSphere(r, vec3(-205,0,0), 200.0,
-                                      material(diffuse, vec3(0.9, 0.2, 0.2)));
+                                      material(diffuse, red));
         hit right = intersectSphere(r, vec3(205,0,0), 200.0,
-                                      material(diffuse, vec3(0.2, 0.9, 0.2)));
+                                      material(diffuse, green));
         hit back = intersectSphere(r, vec3(0,0,205), 200.0,
-                                      material(diffuse, vec3(0.2, 0.2, 0.9)));
+                                      material(diffuse, blue));
         hit front = intersectSphere(r, vec3(0,0,-205), 200.0,
-                                      material(diffuse, vec3(0.2, 0.2, 0.2)));
+                                      material(diffuse, black));
 
         hit walls = unionObj(unionObj(ground, ceiling),
                              unionObj(unionObj(left, right),
                                       unionObj(back, front)));
         hit sphere2 = intersectSphere(r, vec3(0,200,0), 195.001,
-                                      material(light, vec3(1.0, 1.0, 1.0)));
+                                      material(light, white));
         hit sphere3 = intersectSphere(r, vec3(-2, 0, 0), 1.0,
-                                      material(mirror, vec3(0.6, 0.6, 0.6)));
+                                      material(mirror, lightGrey));
         return unionObj(walls, (unionObj(sphere2, sphere3)));
 }
 
@@ -157,8 +253,8 @@ hit intersect(ray r) {
 // Rendering
 ////////////////////////////////////////////////////////////////////////////////
 
-vec3 fireRay(ray r, uint seed) {
-        vec3 color = vec3(1.0);
+float fireRay(ray r, uint seed) {
+        float intensity = 1.0;
         for (uint i = 0u; i < maxBounces; i++) {
                 hit h = intersect(r);
                 if (h.didHit) {
@@ -168,21 +264,22 @@ vec3 fireRay(ray r, uint seed) {
                                 r.direction = reflect(r.direction, h.normal);
                                 break;
                         case light:
-                                color *= 2.0 * vec3(h.mat.color);
-                                return color;
+                                intensity *= 2.0 * getIntensity(h.mat.color, r.wavelength);
+                                return intensity;
                         case diffuse:
                                 r.direction = sampleHemisphere(h.normal, seed);
                                 break;
                         }
-                        color *= vec3(h.mat.color) * dot(r.direction, h.normal);
+                        intensity *= getIntensity(h.mat.color, r.wavelength)
+                                * dot(r.direction, h.normal);
                         r.origin += r.direction*epsilon;
                 } else {
                         // No hit
-                        return vec3(0.0);
+                        return 0.0;
                 }
         }
         // Exceeded max bounces
-        return vec3(0);
+        return 0.0;
 }
 
 vec3 renderFrame(void) {
@@ -207,8 +304,13 @@ vec3 renderFrame(void) {
                 vec2 uv = (jitteredCoord / iResolution)*2.0-1.0;
                 vec3 filmPos = filmCentre + camRight*uv.x*filmSize.x + camUp*uv.y*filmSize.y;
                 vec3 rd = normalize(filmPos - camPos);
-                ray r = ray(camPos, rd);
-                c += fireRay(r, seed);
+
+                float u = getRand(seed, 4u);
+                float wavelength = mix(380.0, 700.0, u);
+
+                ray r = ray(camPos, rd, wavelength);
+                float intensity = fireRay(r, seed);
+                c += intensity*wavelengthToRGB(wavelength);
         }
         return c / float(raysPerPixel);
 }
