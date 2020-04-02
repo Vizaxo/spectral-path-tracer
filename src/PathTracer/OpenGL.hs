@@ -1,5 +1,6 @@
 module PathTracer.OpenGL where
 
+import Control.Concurrent.STM
 import Control.Exception
 import Control.Lens
 import Control.Monad
@@ -35,14 +36,9 @@ makeWindow = liftIO $ do
   GLFW.openWindow (GL.Size 400 600) [] GLFW.Window
   GLFW.windowTitle $= "PathTracer HS"
   GLFW.windowCloseCallback $= exitSuccess
-  GLFW.keyCallback $= keyCallback
 
   -- Disable vsync
   GLFW.swapInterval $= 0
-
-keyCallback :: GLFW.Key -> GLFW.KeyButtonState -> IO ()
-keyCallback (GLFW.SpecialKey GLFW.ESC) GLFW.Press = exitSuccess
-keyCallback _ _ = pure ()
 
 initOGL :: MonadIO m => m ()
 initOGL = do
@@ -73,13 +69,34 @@ initRenderState shaderDir = do
     Left e -> error $ "Failed to load texture: " ++ e
     Right t -> pure t
 
-  buffer0 <- genRenderBuffer windowSize
-  buffer1 <- genRenderBuffer windowSize
+  buffers <- initBuffers windowSize
 
   currentTime <- liftIO getCurrentTime
   pure (RenderState shaderProg vao False shaderDir
         windowSize currentTime
-        [buffer0, buffer1] texture0 0)
+        buffers texture0 0 False)
+
+postInit :: MonadIO m => TVar RenderState -> m ()
+postInit s = do
+  GLFW.windowSizeCallback $= updateWindowSize s
+  GLFW.keyCallback $= keyCallback s
+
+keyCallback :: TVar RenderState -> GLFW.Key -> GLFW.KeyButtonState -> IO ()
+keyCallback _ (GLFW.SpecialKey GLFW.ESC) GLFW.Press
+  = exitSuccess
+keyCallback s (GLFW.CharKey 'R') GLFW.Press
+  = void $ runSTMStateT s $ modify (set shouldReset True)
+keyCallback _ _ _ = pure ()
+
+updateWindowSize :: MonadIO m => TVar RenderState -> GL.Size -> m ()
+updateWindowSize s size = void $ runSTMStateT s $
+  modify (set shouldReset True . set windowSize size)
+
+initBuffers :: MonadIO m => GL.Size -> m [RenderBuffer]
+initBuffers size = do
+  buffers <- replicateM 2 (genRenderBuffer size)
+  mapM_ clearBuffer buffers
+  pure buffers
 
 genTextureFloat :: MonadIO m => GL.GLint -> GL.GLint -> m GL.TextureObject
 genTextureFloat width height = do
@@ -192,6 +209,14 @@ bindBufferTexture b id =
   let t = getLastWrittenTexture b
   in bindTexture t ("buffer" ++ show id) (GL.TextureUnit (2+fromInteger id))
 
+reset :: (MonadState RenderState m, MonadIO m) => m ()
+reset = do
+  -- TODO: deallocate old buffers
+  rs <- get
+  GL.viewport $= ((GL.Position 0 0), rs^.windowSize)
+  bs <- initBuffers (rs^.windowSize)
+  modify (set shouldReset False . set frameNo 0 . set buffers bs)
+
 renderFrame :: (MonadState RenderState m, MonadIO m) => Float -> UTCTime -> m ()
 renderFrame iTime t = do
   GL.get GL.errors >>= \case
@@ -201,6 +226,9 @@ renderFrame iTime t = do
   recompileIfDirty
 
   rs <- get
+  when (rs^.shouldReset) reset
+  rs <- get
+
   let tPrev = rs^.lastRenderTime
       dt = realToFrac (diffUTCTime t tPrev) :: Float
       fps = 1.0 / dt

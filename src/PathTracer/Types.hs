@@ -39,5 +39,6 @@ data RenderState = RenderState
   , _buffers :: [RenderBuffer]
   , _texture0 :: GL.TextureObject
   , _frameNo :: Int
+  , _shouldReset :: Bool
   }
 makeLenses ''RenderState
