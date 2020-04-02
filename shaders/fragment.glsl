@@ -14,23 +14,14 @@ uniform sampler2D buffer1;
 in vec2 uv;
 out vec4 fragColor;
 
-
-float inf = 1.0/0.0;
-float pi = 3.1415926535;
-float tau = 2.0*pi;
+////////////////////////////////////////////////////////////////////////////////
+// Types
+////////////////////////////////////////////////////////////////////////////////
 
 struct ray {
         vec3 origin;
         vec3 direction;
 };
-
-#define mirror 1u
-#define light 2u
-#define diffuse 3u
-
-uint maxBounces = 10u;
-float epsilon = 0.001;
-uint raysPerPixel = 100u;
 
 
 struct material {
@@ -38,7 +29,10 @@ struct material {
         vec3 color;
 };
 
-material black = material(mirror, vec3(0));
+// matType enum
+#define mirror 1u
+#define light 2u
+#define diffuse 3u
 
 struct hit {
         bool didHit;
@@ -47,9 +41,27 @@ struct hit {
         vec3 normal;
         material mat;
 };
+
+////////////////////////////////////////////////////////////////////////////////
+// Constants
+////////////////////////////////////////////////////////////////////////////////
+
+float inf = 1.0/0.0;
+float pi = 3.1415926535;
+float tau = 2.0*pi;
+
+uint maxBounces = 10u;
+float epsilon = 0.001;
+uint raysPerPixel = 10u;
+uint numRands = 2u;
+
+material black = material(mirror, vec3(0));
 hit noHit = hit(false, inf, vec3(0.0), vec3(0.0), material(black));
 
-uint numRands = 2u;
+////////////////////////////////////////////////////////////////////////////////
+// Random sampling
+////////////////////////////////////////////////////////////////////////////////
+
 float getRand(uint a, uint randId) {
     a *= numRands;
     a += randId;
@@ -72,6 +84,9 @@ vec3 sampleHemisphere(vec3 normal, uint seed) {
         return v;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Intecsections
+////////////////////////////////////////////////////////////////////////////////
 
 hit intersectSphere(ray r, vec3 centre, float radius, material m) {
         vec3 ro = r.origin - centre;
@@ -97,17 +112,25 @@ hit intersectSphere(ray r, vec3 centre, float radius, material m) {
         return hit(true, t, hitPos, norm, m);
 }
 
-hit union(hit a, hit b) {
+hit unionObj(hit a, hit b) {
         return (a.distance < b.distance ? a : b);
 }
 
 hit intersect(ray r) {
-        hit floor = intersectSphere(r, vec3(0,-200,0), 200.0, material(diffuse, vec3(0.8, 0.8, 0.8)));
-        hit ceiling = intersectSphere(r, vec3(0,205,0), 200.0, material(diffuse, vec3(0.8, 0.8, 0.8)));
-        hit sphere2 = intersectSphere(r, vec3(0,4,0), 1.0, material(light, vec3(0.8,1,0.2)));
-        hit sphere3 = intersectSphere(r, vec3(-2, -4, 0), 5.0, material(mirror, vec3(0.2, 0.5, 0.9)));
-        return union(union(floor, ceiling), (union(sphere2, sphere3)));
+        hit ground = intersectSphere(r, vec3(0,-200,0), 200.0,
+                                     material(diffuse, vec3(0.8, 0.8, 0.8)));
+        hit ceiling = intersectSphere(r, vec3(0,205,0), 200.0,
+                                      material(diffuse, vec3(0.8, 0.8, 0.8)));
+        hit sphere2 = intersectSphere(r, vec3(0,4,0), 1.0,
+                                      material(light, vec3(0.8,1,0.2)));
+        hit sphere3 = intersectSphere(r, vec3(-2, -4, 0), 5.0,
+                                      material(mirror, vec3(0.2, 0.5, 0.9)));
+        return unionObj(unionObj(ground, ceiling), (unionObj(sphere2, sphere3)));
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Rendering
+////////////////////////////////////////////////////////////////////////////////
 
 vec3 fireRay(ray r, uint seed) {
         vec3 color = vec3(1.0);
