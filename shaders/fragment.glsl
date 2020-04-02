@@ -53,7 +53,7 @@ float tau = 2.0*pi;
 uint maxBounces = 10u;
 float epsilon = 0.001;
 uint raysPerPixel = 10u;
-uint numRands = 2u;
+uint numRands = 4u;
 
 material black = material(mirror, vec3(0));
 hit noHit = hit(false, inf, vec3(0.0), vec3(0.0), material(black));
@@ -194,9 +194,6 @@ vec3 renderFrame(void) {
         vec3 camUp = cross(camRight, camForward);
         vec3 filmCentre = camPos + camForward*0.6;
         vec2 filmSize = vec2(1.0, iResolution.y/iResolution.x);
-        vec3 filmPos = filmCentre + camRight*uv.x*filmSize.x + camUp*uv.y*filmSize.y;
-        vec3 rd = normalize(filmPos - camPos);
-        ray r = ray(camPos, rd);
 
         uvec2 res = uvec2(iResolution);
         uint x = uint(gl_FragCoord.x);
@@ -207,8 +204,10 @@ vec3 renderFrame(void) {
         for (uint i = 0u; i  < raysPerPixel; i++) {
                 uint seed = baseSeed*raysPerPixel + i;
                 vec2 jitteredCoord = gl_FragCoord.xy + vec2(getRand(seed, 2u), getRand(seed, 3u)) - 0.5;
-                vec2 uv = jitteredCoord / iResolution;
+                vec2 uv = (jitteredCoord / iResolution)*2.0-1.0;
                 vec3 filmPos = filmCentre + camRight*uv.x*filmSize.x + camUp*uv.y*filmSize.y;
+                vec3 rd = normalize(filmPos - camPos);
+                ray r = ray(camPos, rd);
                 c += fireRay(r, seed);
         }
         return c / float(raysPerPixel);
