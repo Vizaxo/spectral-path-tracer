@@ -24,16 +24,22 @@ struct ray {
         float wavelength;
 };
 
+struct refractiveIndex {
+        float coeffA;
+        float coeffB;
+};
 
 struct material {
         uint matType;
         uint color;
+        refractiveIndex ri; // only if matType == transparent
 };
 
 // matType enum
 #define mirror 1u
 #define light 2u
 #define diffuse 3u
+#define transparent 4u
 
 // color enum
 #define white 0u
@@ -50,6 +56,7 @@ struct hit {
         float distance;
         vec3 hitPos;
         vec3 normal;
+        bool insideObj;
         material mat;
 };
 
@@ -64,10 +71,12 @@ float tau = 2.0*pi;
 uint maxBounces = 10u;
 float epsilon = 0.001;
 uint raysPerPixel = 1u;
-uint numRands = 5u;
+uint numRands = 6u;
 
-material blankMaterial = material(diffuse, black);
-hit noHit = hit(false, inf, vec3(0.0), vec3(0.0), blankMaterial);
+refractiveIndex riGlass = refractiveIndex(1.4580, 0.00354); //fused silica
+refractiveIndex noRi = refractiveIndex(0 ,0);
+material blankMaterial = material(diffuse, black, noRi);
+hit noHit = hit(false, inf, vec3(0.0), vec3(0.0), false, blankMaterial);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Random sampling
@@ -193,6 +202,19 @@ float getIntensity(uint color, float wavelength) {
     }
 }
 
+// Cauchy's equation
+float getRI(material m, float wavelength) {
+    float a = m.ri.coeffA;
+    float b = m.ri.coeffA;
+    return a + b / (wavelength*wavelength);
+}
+
+float schlick(float n1, float n2, float cosTheta) {
+    float tmp = (n1-n2)/(n1+n2);
+    float r0 = tmp*tmp;
+    return r0 + (1.0-r0) * pow(1.0-cosTheta, 5.0);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Intersections
 ////////////////////////////////////////////////////////////////////////////////
@@ -206,7 +228,6 @@ hit intersectSphere(ray r, vec3 centre, float radius, material m) {
         float t0 = (-b + root)/2.0;
         float t1 = (-b - root)/2.0;
         float t = inf;
-        int hits = 0;
         if (t0 > 0 && t1 > 0) {
                 t = min(t0, t1);
         } else if (t0 > 0) {
@@ -218,7 +239,9 @@ hit intersectSphere(ray r, vec3 centre, float radius, material m) {
         }
         vec3 hitPos = r.origin + rd*t;
         vec3 norm = normalize(hitPos - centre);
-        return hit(true, t, hitPos, norm, m);
+        bool insideObj = dot(norm, -rd) < 0;
+        norm = insideObj ? -norm : norm;
+        return hit(true, t, hitPos, norm, insideObj, m);
 }
 
 hit unionObj(hit a, hit b) {
@@ -227,26 +250,29 @@ hit unionObj(hit a, hit b) {
 
 hit intersect(ray r) {
         hit ground = intersectSphere(r, vec3(0,-200,0), 200.0,
-                                     material(diffuse, white));
+                                     material(diffuse, white, noRi));
         hit ceiling = intersectSphere(r, vec3(0,205,0), 200.0,
-                                      material(diffuse, white));
+                                      material(diffuse, white, noRi));
         hit left = intersectSphere(r, vec3(-205,0,0), 200.0,
-                                      material(diffuse, red));
+                                      material(diffuse, red, noRi));
         hit right = intersectSphere(r, vec3(205,0,0), 200.0,
-                                      material(diffuse, green));
+                                      material(diffuse, green, noRi));
         hit back = intersectSphere(r, vec3(0,0,205), 200.0,
-                                      material(diffuse, blue));
+                                      material(diffuse, blue, noRi));
         hit front = intersectSphere(r, vec3(0,0,-205), 200.0,
-                                      material(diffuse, black));
+                                      material(diffuse, black, noRi));
 
         hit walls = unionObj(unionObj(ground, ceiling),
                              unionObj(unionObj(left, right),
                                       unionObj(back, front)));
-        hit sphere2 = intersectSphere(r, vec3(0,200,0), 195.001,
-                                      material(light, white));
-        hit sphere3 = intersectSphere(r, vec3(-2, 0, 0), 1.0,
-                                      material(mirror, lightGrey));
-        return unionObj(walls, (unionObj(sphere2, sphere3)));
+        hit glassSphere = intersectSphere(r, vec3(1,1,0), 1.0,
+                                          material(transparent, white, riGlass));
+        hit mirrorSphere = intersectSphere(r, vec3(-2, 0, 0), 1.0,
+                                           material(mirror, lightGrey, noRi));
+        hit ceilLight = intersectSphere(r, vec3(0,200,0), 195.001,
+                                        material(light, white, noRi));
+        hit objects = unionObj(ceilLight, unionObj(glassSphere, mirrorSphere));
+        return unionObj(walls, objects);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -264,14 +290,32 @@ float fireRay(ray r, uint seed) {
                                 r.direction = reflect(r.direction, h.normal);
                                 break;
                         case light:
-                                intensity *= 2.0 * getIntensity(h.mat.color, r.wavelength);
+                                intensity *= 5.0 * getIntensity(h.mat.color, r.wavelength);
                                 return intensity;
                         case diffuse:
                                 r.direction = sampleHemisphere(h.normal, seed);
                                 break;
+                        case transparent:
+                                float n1, n2;
+                                if (h.insideObj) {
+                                        n1 = getRI(h.mat, r.wavelength);
+                                        n2 = 1.0;
+                                } else {
+                                        n1 = 1.0;
+                                        n2 = getRI(h.mat, r.wavelength);
+                                }
+
+                                float u = getRand(seed, 2u);
+                                float pReflect = schlick(n1, n2,-(dot(h.normal, r.direction)));
+                                if (u < pReflect) {
+                                        r.direction = reflect(r.direction, h.normal);
+                                } else {
+                                        r.direction = refract(r.direction, h.normal, n1/n2);
+                                }
+                                break;
                         }
                         intensity *= getIntensity(h.mat.color, r.wavelength)
-                                * dot(r.direction, h.normal);
+                                * abs(dot(r.direction, h.normal)); //cosine attenuation
                         r.origin += r.direction*epsilon;
                 } else {
                         // No hit
@@ -300,12 +344,12 @@ vec3 renderFrame(void) {
         vec3 c = vec3(0);
         for (uint i = 0u; i  < raysPerPixel; i++) {
                 uint seed = baseSeed*raysPerPixel + i;
-                vec2 jitteredCoord = gl_FragCoord.xy + vec2(getRand(seed, 2u), getRand(seed, 3u)) - 0.5;
+                vec2 jitteredCoord = gl_FragCoord.xy + vec2(getRand(seed, 3u), getRand(seed, 4u)) - 0.5;
                 vec2 uv = (jitteredCoord / iResolution)*2.0-1.0;
                 vec3 filmPos = filmCentre + camRight*uv.x*filmSize.x + camUp*uv.y*filmSize.y;
                 vec3 rd = normalize(filmPos - camPos);
 
-                float u = getRand(seed, 4u);
+                float u = getRand(seed, 5u);
                 float wavelength = mix(380.0, 700.0, u);
 
                 ray r = ray(camPos, rd, wavelength);
