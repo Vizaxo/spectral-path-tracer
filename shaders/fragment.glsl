@@ -7,13 +7,17 @@ uniform vec2 iMousePos;
 uniform vec2 iResolution;
 uniform int bufferId;
 
+uniform sampler2D texture0;
 uniform sampler2D buffer0;
 uniform sampler2D buffer1;
 
-float inf = 1.0/0.0;
-
 in vec2 uv;
 out vec4 fragColor;
+
+
+float inf = 1.0/0.0;
+float pi = 3.1415926535;
+float tau = 2.0*pi;
 
 struct ray {
         vec3 origin;
@@ -22,8 +26,12 @@ struct ray {
 
 #define mirror 1u
 #define light 2u
-int maxBounces = 10;
+#define diffuse 3u
+
+uint maxBounces = 10u;
 float epsilon = 0.001;
+uint raysPerPixel = 100u;
+
 
 struct material {
         uint matType;
@@ -39,8 +47,31 @@ struct hit {
         vec3 normal;
         material mat;
 };
-
 hit noHit = hit(false, inf, vec3(0.0), vec3(0.0), material(black));
+
+uint numRands = 2u;
+float getRand(uint a, uint randId) {
+    a *= numRands;
+    a += randId;
+    return texelFetch(texture0, ivec2(a%1021u, (a/1019u) % 1024u), 0).r;
+}
+
+vec3 sampleSphere(uint seed) {
+    float u1 = getRand(seed, 0u);
+    float u2 = getRand(seed, 1u);
+    float r = sqrt(1. - u1*u1);
+    float phi = tau * u2;
+    return vec3(cos(phi) * r, sin(phi) * r, 2. * u1);
+}
+
+vec3 sampleHemisphere(vec3 normal, uint seed) {
+    vec3 v = sampleSphere(seed);
+    if (dot(normal, v) < 0.)
+        return -v;
+    else
+        return v;
+}
+
 
 hit intersectSphere(ray r, vec3 centre, float radius, material m) {
         vec3 ro = r.origin - centre;
@@ -71,28 +102,32 @@ hit union(hit a, hit b) {
 }
 
 hit intersect(ray r) {
-        hit sphere1 = intersectSphere(r, vec3(0,-200,0), 200.0, material(mirror, vec3(0.8, 0.2, 0.2)));
-        hit sphere2 = intersectSphere(r, vec3(0,8,0), 1.0, material(light, vec3(0.8,1,0.2)));
-        hit sphere3 = intersectSphere(r, vec3(-2, -4, 0), 5.0, material(light, vec3(0.2, 0.5, 0.9)));
-        return union(sphere1, (union(sphere2, sphere3)));
+        hit floor = intersectSphere(r, vec3(0,-200,0), 200.0, material(diffuse, vec3(0.8, 0.8, 0.8)));
+        hit ceiling = intersectSphere(r, vec3(0,205,0), 200.0, material(diffuse, vec3(0.8, 0.8, 0.8)));
+        hit sphere2 = intersectSphere(r, vec3(0,4,0), 1.0, material(light, vec3(0.8,1,0.2)));
+        hit sphere3 = intersectSphere(r, vec3(-2, -4, 0), 5.0, material(mirror, vec3(0.2, 0.5, 0.9)));
+        return union(union(floor, ceiling), (union(sphere2, sphere3)));
 }
 
-vec3 fireRay(ray r) {
+vec3 fireRay(ray r, uint seed) {
         vec3 color = vec3(1.0);
-        for (int i = 0; i < maxBounces; i++) {
+        for (uint i = 0u; i < maxBounces; i++) {
                 hit h = intersect(r);
                 if (h.didHit) {
                         r.origin = h.hitPos;
                         switch(h.mat.matType) {
                         case mirror:
-                                color *= vec3(h.mat.color);
                                 r.direction = reflect(r.direction, h.normal);
-                                r.origin += r.direction*epsilon;
                                 break;
                         case light:
                                 color *= vec3(h.mat.color);
                                 return color;
+                        case diffuse:
+                                r.direction = sampleHemisphere(h.normal, seed);
+                                break;
                         }
+                        color *= vec3(h.mat.color);
+                        r.origin += r.direction*epsilon;
                 } else {
                         return vec3(0.0);
                 }
@@ -112,7 +147,21 @@ vec3 renderFrame(void) {
         vec3 filmPos = filmCentre + camRight*uv.x*filmSize.x + camUp*uv.y*filmSize.y;
         vec3 rd = normalize(filmPos - camPos);
         ray r = ray(camPos, rd);
-        return fireRay(r);
+
+        uvec2 res = uvec2(iResolution);
+        uint x = uint(gl_FragCoord.x);
+        uint y = uint(gl_FragCoord.y);
+        uint baseSeed = uint(iFrame)*res.x*res.y + y*res.x+ x;
+
+        vec3 c = vec3(0);
+        for (uint i = 0u; i  < raysPerPixel; i++) {
+                uint seed = baseSeed*raysPerPixel + i;
+                vec2 jitteredCoord = gl_FragCoord.xy + vec2(getRand(seed, 2u), getRand(seed, 3u)) - 0.5;
+                vec2 uv = jitteredCoord / iResolution;
+                vec3 filmPos = filmCentre + camRight*uv.x*filmSize.x + camUp*uv.y*filmSize.y;
+                c += fireRay(r, seed);
+        }
+        return c / float(raysPerPixel);
 }
 
 void main(void) {
