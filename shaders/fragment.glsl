@@ -165,10 +165,12 @@ vec3 fireRay(ray r, uint seed) {
                         color *= vec3(h.mat.color) * dot(r.direction, h.normal);
                         r.origin += r.direction*epsilon;
                 } else {
+                        // No hit
                         return vec3(0.0);
                 }
         }
-        return color;
+        // Exceeded max bounces
+        return vec3(0);
 }
 
 vec3 renderFrame(void) {
