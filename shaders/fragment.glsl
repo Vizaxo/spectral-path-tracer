@@ -75,7 +75,7 @@ uint numRands = 6u;
 
 refractiveIndex riGlass = refractiveIndex(1.4580, 0.00354); //fused silica
 refractiveIndex noRi = refractiveIndex(0 ,0);
-material blankMaterial = material(diffuse, black, noRi);
+material blankMaterial = material(diffuse, yellow, noRi);
 hit noHit = hit(false, inf, vec3(0.0), vec3(0.0), false, blankMaterial);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -265,7 +265,7 @@ hit intersect(ray r) {
         hit walls = unionObj(unionObj(ground, ceiling),
                              unionObj(unionObj(left, right),
                                       unionObj(back, front)));
-        hit glassSphere = intersectSphere(r, vec3(1,1,0), 1.0,
+        hit glassSphere = intersectSphere(r, vec3(1,1.5,0), 1.0,
                                           material(transparent, white, riGlass));
         hit mirrorSphere = intersectSphere(r, vec3(-2, 0, 0), 1.0,
                                            material(mirror, lightGrey, noRi));
