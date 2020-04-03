@@ -290,10 +290,11 @@ float fireRay(ray r, uint seed) {
                                 r.direction = reflect(r.direction, h.normal);
                                 break;
                         case light:
-                                intensity *= 5.0 * getIntensity(h.mat.color, r.wavelength);
+                                intensity *= 10.0 * getIntensity(h.mat.color, r.wavelength);
                                 return intensity;
                         case diffuse:
                                 r.direction = sampleHemisphere(h.normal, seed);
+                                intensity *= 1/pi;
                                 break;
                         case transparent:
                                 float n1, n2;
