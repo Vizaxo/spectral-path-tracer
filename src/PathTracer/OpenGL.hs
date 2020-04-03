@@ -74,7 +74,8 @@ initRenderState shaderDir = do
   currentTime <- liftIO getCurrentTime
   pure (RenderState shaderProg vao False shaderDir
         windowSize currentTime
-        buffers texture0 0 False)
+        buffers texture0 1 False
+        (GL.Position 0 0) True)
 
 postInit :: MonadIO m => TVar RenderState -> m ()
 postInit s = do
@@ -181,7 +182,9 @@ bindTexture texture uniformName textureUnit = do
 renderToBuffer :: (MonadGet RenderState m, MonadIO m)
   => RenderBuffer -> Integer -> m RenderBuffer
 renderToBuffer b id = do
+  rs <- get
   let t = getPreviousTexture b
+  when (rs^.shouldClearBuffers) (clearBuffer b)
   GL.bindFramebuffer GL.Framebuffer $= (b^.fbo)
   GL.activeTexture $= GL.TextureUnit 0
   GL.textureFilter GL.Texture2D $= ((GL.Nearest, Nothing), GL.Nearest)
@@ -209,13 +212,19 @@ bindBufferTexture b id =
   let t = getLastWrittenTexture b
   in bindTexture t ("buffer" ++ show id) (GL.TextureUnit (2+fromInteger id))
 
+deleteBuffer :: MonadIO m => RenderBuffer -> m ()
+deleteBuffer b = do
+  GL.deleteObjectName (b^.textureA)
+  GL.deleteObjectName (b^.textureB)
+  GL.deleteObjectName (b^.fbo)
+
 reset :: (MonadState RenderState m, MonadIO m) => m ()
 reset = do
-  -- TODO: deallocate old buffers
   rs <- get
+  mapM_ deleteBuffer (rs^.buffers)
   GL.viewport $= ((GL.Position 0 0), rs^.windowSize)
   bs <- initBuffers (rs^.windowSize)
-  modify (set shouldReset False . set frameNo 0 . set buffers bs)
+  modify (set shouldReset False . set frameNo 1 . set buffers bs)
 
 renderFrame :: (MonadState RenderState m, MonadIO m) => Float -> UTCTime -> m ()
 renderFrame iTime t = do
@@ -226,7 +235,10 @@ renderFrame iTime t = do
   recompileIfDirty
 
   rs <- get
+  mouse@(GL.Position mouseX mouseY) <- GL.get GLFW.mousePos
+  modify (set mousePos mouse)
   when (rs^.shouldReset) reset
+  when (rs^.mousePos /= mouse) (modify (set shouldClearBuffers True . set frameNo 1))
   rs <- get
 
   let tPrev = rs^.lastRenderTime
@@ -242,7 +254,6 @@ renderFrame iTime t = do
   let (GL.Size width height) = rs^.windowSize
   safeSetUniform "iResolution"
     (GL.Vector2 (fromIntegral width) (fromIntegral height) :: GL.Vector2 Float)
-  (GL.Position mouseX mouseY) <- GL.get GLFW.mousePos
   safeSetUniform "iMousePos" (GL.Vector2 @Float (fromIntegral mouseX)
                               (fromIntegral (height - mouseY)))
   bindTexture (rs^.texture0) "texture0" (GL.TextureUnit 1)
@@ -251,6 +262,10 @@ renderFrame iTime t = do
   mapM_ (uncurry bindBufferTexture) numberedBuffers
   bs' <- traverse (uncurry renderToBuffer) numberedBuffers
   modify (set buffers bs')
+  rs <- get
+  let numberedBuffers = zip (rs^.buffers) [0..]
+  mapM_ (uncurry bindBufferTexture) numberedBuffers
+  when (rs^.shouldClearBuffers) (modify (set shouldClearBuffers False))
 
   renderToScreen (-1)
 

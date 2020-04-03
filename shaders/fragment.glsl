@@ -70,7 +70,7 @@ float tau = 2.0*pi;
 
 uint maxBounces = 10u;
 float epsilon = 0.001;
-uint raysPerPixel = 1u;
+uint raysPerPixel = 10u;
 uint numRands = 6u;
 
 refractiveIndex riGlass = refractiveIndex(1.4580, 0.00354); //fused silica
@@ -327,7 +327,7 @@ float fireRay(ray r, uint seed) {
 }
 
 vec3 renderFrame(void) {
-        vec3 camPos = vec3(0.0, 2, -3.0);
+        vec3 camPos = vec3(2.0*sin(iMousePos.x/iResolution.x*2*pi), 1 + iMousePos.y/iResolution.y*2.0, 2.0*cos(iMousePos.x/iResolution.x*2*pi));
         vec3 lookAt = vec3(0,1.4,0);
         vec3 worldUp = vec3(0, 1, 0);
         vec3 camForward = normalize(lookAt - camPos);
@@ -339,7 +339,7 @@ vec3 renderFrame(void) {
         uvec2 res = uvec2(iResolution);
         uint x = uint(gl_FragCoord.x);
         uint y = uint(gl_FragCoord.y);
-        uint baseSeed = uint(iFrame)*res.x*res.y + y*res.x+ x;
+        uint baseSeed = uint(iTime * 1/iDeltaTime)*res.x*res.y + y*res.x+ x;
 
         vec3 c = vec3(0);
         for (uint i = 0u; i  < raysPerPixel; i++) {

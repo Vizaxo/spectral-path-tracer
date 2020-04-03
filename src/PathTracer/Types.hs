@@ -40,5 +40,7 @@ data RenderState = RenderState
   , _texture0 :: GL.TextureObject
   , _frameNo :: Int
   , _shouldReset :: Bool
+  , _mousePos :: GL.Position
+  , _shouldClearBuffers :: Bool
   }
 makeLenses ''RenderState
